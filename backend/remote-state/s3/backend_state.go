@@ -15,28 +15,33 @@ import (
 )
 
 func (b *Backend) States() ([]string, error) {
-	prefix := b.workspaceKeyPrefix + "/"
+	const maxKeys = 1000
+
+	prefix := ""
 
 	// List bucket root if there is no workspaceKeyPrefix
 	if b.workspaceKeyPrefix == "" {
 		prefix = ""
 	}
 	params := &s3.ListObjectsInput{
-		Bucket: &b.bucketName,
-		Prefix: aws.String(prefix),
-	}
-
-	resp, err := b.s3Client.ListObjects(params)
-	if err != nil {
-		return nil, err
+		Bucket:  &b.bucketName,
+		Prefix:  aws.String(prefix),
+		MaxKeys: aws.Int64(maxKeys),
 	}
 
 	wss := []string{backend.DefaultStateName}
-	for _, obj := range resp.Contents {
-		ws := b.keyEnv(*obj.Key)
-		if ws != "" {
-			wss = append(wss, ws)
+	err := b.s3Client.ListObjectsPages(params, func(page *s3.ListObjectsOutput, lastPage bool) bool {
+		for _, obj := range page.Contents {
+			ws := b.keyEnv(*obj.Key)
+			if ws != "" {
+				wss = append(wss, ws)
+			}
 		}
+		return !lastPage
+	})
+
+	if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == s3.ErrCodeNoSuchBucket {
+		return nil, fmt.Errorf(errS3NoSuchBucket, err)
 	}
 
 	sort.Strings(wss[1:])
