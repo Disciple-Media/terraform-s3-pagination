@@ -414,3 +414,12 @@ persists, and neither S3 nor DynamoDB are experiencing an outage, you may need
 to manually verify the remote state and update the Digest value stored in the
 DynamoDB table to the following value: %x
 `
+
+const errS3NoSuchBucket = `S3 bucket does not exist.
+
+The referenced S3 bucket must have been previously created. If the S3 bucket
+was created within the last minute, please wait for a minute or two and try
+again.
+
+Error: %s
+`
